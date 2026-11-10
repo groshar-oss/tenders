@@ -14,7 +14,7 @@
 1. Supabase: להריץ `supabase/migrations/0001_init.sql`, ואז `alter role tenders_app password '...'`.
 2. Vercel: לחבר את הריפו ולהגדיר משתנים לפי `.env.example`.
 3. Google Cloud: להוסיף redirect URI `https://<app>/api/auth/callback` ל-OAuth client.
-4. תזמון: Supabase pg_cron + pg_net קורא כל 30 דקות ל-`/api/cron` עם `Authorization: Bearer <CRON_SECRET>`. (Vercel cron יומי קיים כגיבוי.)
+4. תזמון: Vercel Cron כל 30 דקות (vercel.json), עם CRON_SECRET.
 5. באפליקציה: כניסה ראשונה = בעל החשבון. בהגדרות: להשלים את פרופיל החברות, לחבר Google לשליחה, להפעיל CallMeBot.
 
 ## בדיקות
