@@ -15,7 +15,7 @@ const psql = (args) => execSync(`su postgres -c "psql -q -v ON_ERROR_STOP=1 ${ar
 psql(`-c 'drop database if exists ${DB}' -c 'create database ${DB}'`);
 for (const f of fs.readdirSync(`${root}/supabase/migrations`).sort()) psql(`-d ${DB} -f ${root}/supabase/migrations/${f}`);
 psql(`-c \\"alter role tenders_app password 'localtest'\\"`);
-const sql = (s) => { const f = path.join(OUT, '_q.sql'); fs.writeFileSync(f, s); fs.chmodSync(f, 0o644); return execSync(`su postgres -c "psql -At -d ${DB} -f ${f}"`).toString().trim(); };
+const sql = (s) => { const f = path.join(OUT, '_q.sql'); fs.writeFileSync(f, 'set search_path = tenders;\n' + s); fs.chmodSync(f, 0o644); return execSync(`su postgres -c "psql -q -At -d ${DB} -f ${f}"`).toString().trim(); };
 
 const { st, server } = await startFake(FAKE);
 const F = `http://127.0.0.1:${FAKE}`;

@@ -7,6 +7,12 @@ do $$ begin
   end if;
 end $$;
 
+-- כל הטבלאות באזור (schema) נפרד בשם tenders, בתוך פרויקט Supabase של ההוצאות.
+-- אין חפיפה עם טבלאות ההוצאות, ותפקיד האפליקציה לא מקבל גישה אליהן.
+create schema if not exists tenders;
+set search_path = tenders;
+alter role tenders_app set search_path = tenders;
+
 create table members (
   email text primary key,
   name text not null default '',
@@ -124,5 +130,6 @@ begin
     end if;
   end loop;
 end $$;
-grant usage on schema public to tenders_app;
-grant usage, select on all sequences in schema public to tenders_app;
+grant usage on schema tenders to tenders_app;
+grant usage, select on all sequences in schema tenders to tenders_app;
+revoke all on schema tenders from public;
