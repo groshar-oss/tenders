@@ -1,0 +1,28 @@
+{
+  "name": "groshar-tenders",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit",
+    "test:e2e": "node tests/e2e/run.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "next": "15.5.26",
+    "pg": "^8.23.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "typescript": "^5",
+    "vitest": "^5.0.1",
+    "playwright": "^1.56.0"
+  }
+}

@@ -1,0 +1,44 @@
+/* איתור מכרזים: תוספות על app.css */
+.bnav{grid-template-columns:repeat(3,1fr)!important}
+.kpis.k4{grid-template-columns:repeat(4,1fr)}
+@media (max-width:760px){.kpis.k4{grid-template-columns:repeat(2,1fr)}}
+.tl{display:flex;flex-direction:column;gap:8px}
+.tc{display:grid;grid-template-columns:58px 1fr;gap:4px 12px;background:#fff;border:1px solid var(--line);padding:12px;cursor:pointer;position:relative}
+.tc:hover{border-color:#b9b29a}
+.tc.hot{border-inline-start:3px solid var(--olive)}
+.tc .sc{grid-row:1/span 5;text-align:center;border-inline-end:1px solid var(--line);padding-inline-end:10px}
+.tc>:not(.sc){grid-column:2;min-width:0}
+.tc .sc .v{font-size:26px;font-weight:300;line-height:1.1}
+.tc .sc .e{font-size:11px;color:var(--ink2);margin-top:2px}
+.tc .meta{font-size:12.5px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:4px 10px}
+.tc .ttl{font-size:15.5px;font-weight:500;color:var(--ink);line-height:1.35}
+.tc .why{font-size:13px;color:#3B4049}
+.tc .acts{grid-column:2;display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.tc .acts .btn{min-height:34px;padding:5px 10px;font-size:13px}
+.dl{white-space:nowrap}
+.dl.soon{color:var(--red);font-weight:600}
+.dl.week{color:#8A5A00;font-weight:600}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border:1px solid var(--line);background:#F6F3EC;color:#3B4049}
+.tag.st{background:#11151C;color:#fff;border-color:#11151C}
+.tag.ol{background:var(--olive-bg);border-color:var(--olive);color:#4d4a08}
+.fbar{display:grid;grid-template-columns:2fr repeat(6,1fr);gap:8px;margin-bottom:10px}
+.fbar input,.fbar select{border:1px solid var(--line);padding:9px 10px;background:#fff;font-size:15px;min-height:42px;width:100%}
+@media (max-width:900px){.fbar{grid-template-columns:1fr 1fr}.fbar .q{grid-column:1/-1}}
+.fmore{display:none}
+@media (max-width:900px){.fbar .opt{display:none}.fbar.open .opt{display:block}.fmore{display:inline-flex}}
+.det h3{margin-top:14px}
+.det .kv{display:grid;grid-template-columns:140px 1fr;gap:4px 10px;font-size:14px}
+@media (max-width:760px){.det .kv{grid-template-columns:110px 1fr}}
+.det .kv dt{color:var(--ink2)}.det .kv dd{margin:0}
+.docs a{display:block;padding:7px 0;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none}
+.docs a small{color:var(--ink2)}
+.elig table{width:100%;border-collapse:collapse;font-size:13.5px}
+.elig td,.elig th{border-bottom:1px solid var(--line);padding:6px;text-align:start;vertical-align:top}
+.v-ok{color:var(--grn);font-weight:600}.v-no{color:var(--red);font-weight:600}.v-q{color:#8A5A00}
+.stbtns{display:flex;flex-wrap:wrap;gap:6px}
+.stbtns .btn.on{background:#11151C;color:#fff;border-color:#11151C}
+.src{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+textarea.kw{width:100%;min-height:90px;border:1px solid var(--line);padding:8px;font-size:14px}
+.help{font-size:13px;color:var(--ink2);line-height:1.5}
+.help ol{margin:4px 0;padding-inline-start:20px}
+.more-row{display:flex;justify-content:center;margin:12px 0}
