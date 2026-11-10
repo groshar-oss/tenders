@@ -217,7 +217,8 @@ export function leadText(exempt: LeadRow[], closed: LeadRow[], appUrl: string) {
 
 export async function leadsAlert(s: Settings, appUrl: string) {
   const exempt = await q<LeadRow>(`select id, title, publisher, party, contact from tenders where ${RENT_EXEMPT}
-    and lead_wa_at is null and coalesce(party->>'supplier', '') <> '' and first_seen > now() - interval '3 days' order by first_seen limit 8`);
+    and lead_wa_at is null and coalesce(party->>'supplier', '') <> '' and first_seen > now() - interval '3 days'
+    and coalesce(published_on, first_seen::date) >= current_date - 3 order by first_seen limit 8`);
   const closed = await q<LeadRow>(`select id, title, publisher, party, contact from tenders where ${RENT_TENDER}
     and lead_wa_at is null and deadline < now() and deadline > now() - interval '3 days' and status <> 'מבוטל' order by deadline limit 8`);
   if (!exempt.length && !closed.length) return 0;
