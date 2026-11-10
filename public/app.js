@@ -46,9 +46,10 @@ const S={boot:null,view:'list',f:{...DEF_F,...lsGet('tnd.f',{})},rows:[],total:0
 const ICON={
  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
  star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>',
+ lead:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 10h.01M15 10h.01"/></svg>',
  set:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>'
 };
-const VIEWS=[['list','מכרזים','list'],['tracked','במעקב','star'],['settings','הגדרות','set']];
+const VIEWS=[['list','מכרזים','list'],['tracked','במעקב','star'],['leads','לידים','lead'],['settings','הגדרות','set']];
 function route(){
   const h=location.hash.slice(1)||'list';
   const m=h.match(/^t\/(\d+)/);
@@ -68,6 +69,7 @@ async function render(){
   S.rendered=true;renderNav();
   try{
     if(S.view==='settings')return renderSettings();
+    if(S.view==='leads')return renderLeads();
     return renderList();
   }catch(e){$('#app').innerHTML=`<div class="banner bad">${esc(e.message)}</div>`}
 }
@@ -216,6 +218,10 @@ function drawTender(t){
     ${t.number?`<dt>מס' הליך</dt><dd>${esc(t.number)}</dd>`:''}<dt>סטטוס במקור</dt><dd>${esc(t.status)}</dd>
     <dt>מועד הגשה</dt><dd>${dl(t.deadline)}</dd>${t.submit_start?`<dt>תחילת הגשה</dt><dd>${esc(ilTime(t.submit_start))}</dd>`:''}
     <dt>פורסם</dt><dd>${esc(dmy(t.published_on))}${t.updated_on?` · עודכן ${esc(dmy(t.updated_on))}`:''}</dd>
+    ${t.party?.supplier?`<dt>${/שכיר|דיור|נכס/.test(t.title)?'משכיר / ספק':'ספק'}</dt><dd><b>${esc(t.party.supplier)}</b>${t.party.supplierId?` · ח"פ ${esc(t.party.supplierId)}`:''}</dd>`:''}
+    ${t.party?.amount?`<dt>היקף כספי</dt><dd>${money(t.party.amount)}${t.party.currency&&!/ש"?ח/.test(t.party.currency)?' '+esc(t.party.currency):''}</dd>`:''}
+    ${t.party?.regulation?`<dt>בסיס הפטור</dt><dd>${esc(t.party.regulation)}</dd>`:''}
+    ${t.winner?`<dt>זוכה</dt><dd><b>${esc(t.winner)}</b></dd>`:''}
     ${c.name||c.email?`<dt>איש קשר</dt><dd>${esc(c.name||'')} ${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''} ${c.phone?esc(c.phone):''}</dd>`:''}
     ${(t.topics||[]).length?`<dt>נושאים</dt><dd>${t.topics.map(x=>`<span class="tag">${esc(x)}</span>`).join(' ')}</dd>`:''}
    </dl>
@@ -241,6 +247,63 @@ function drawTender(t){
   $('#rescore').onclick=e=>busy(e.target,async()=>{const u=await api('rescore',t.id);drawTender(u);syncRow(u);toast('דורג מחדש')});
 }
 function syncRow(u){const i=S.rows.findIndex(r=>r.id===u.id);if(i>=0){Object.assign(S.rows[i],u);drawList()}}
+
+/* ============ לידים מהשכרות ============ */
+const money=n=>n?'₪'+Number(n).toLocaleString('he-IL'):'';
+const gq=s=>'https://www.google.com/search?q='+encodeURIComponent(s);
+function leadContact(c){c=c||{};return [c.name?esc(c.name):'',c.phone?`<a href="tel:${esc(c.phone.replace(/[^\d+]/g,''))}">${esc(c.phone)}</a>`:'',c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:''].filter(Boolean).join(' · ')}
+function exemptCard(t){
+  const p=t.party||{};
+  return `<div class="tc lead" data-id="${t.id}">
+   <div class="sc"><div class="v" style="font-size:20px">🏢</div><div class="e">פטור</div></div>
+   <div class="meta"><span>${esc(t.publisher)}</span><span>פורסם ${esc(dmy(t.published_on))}</span>${t.my_status?`<span class="tag st">${esc(MY[t.my_status])}</span>`:''}</div>
+   <div class="ttl">${esc(t.title)}</div>
+   <div class="who">${p.supplier?`משכיר: <b>${esc(p.supplier)}</b>${p.supplierId?` · ח"פ ${esc(p.supplierId)}`:''}${p.amount?` · ${money(p.amount)}`:''}`:'<span class="muted">שם המשכיר עוד לא נקרא מהעמוד</span>'}</div>
+   <div class="acts">
+    ${p.supplier?`<a class="btn" href="${gq(p.supplier+(p.supplierId?' '+p.supplierId:''))}" target="_blank" rel="noopener">חפש את המשכיר ↗</a>`:''}
+    <button class="btn ghost" data-st="interesting">${t.my_status==='interesting'?'★ מעניין':'☆ מעניין'}</button>
+    <a class="btn ghost" href="${esc(t.url)}" target="_blank" rel="noopener">לעמוד הפטור ↗</a>
+   </div></div>`;
+}
+function rentCard(t){
+  const open=t.deadline&&daysLeft(t.deadline)>=0;
+  return `<div class="tc lead" data-id="${t.id}">
+   <div class="sc"><div class="v" style="font-size:20px">${t.winner?'✓':open?'⏳':'?'}</div><div class="e">${t.winner?'זוכה ידוע':open?'פתוח':'לברר'}</div></div>
+   <div class="meta"><span>${esc(t.publisher)}</span>${t.number?`<span>מס' ${esc(t.number)}</span>`:''}${t.my_status?`<span class="tag st">${esc(MY[t.my_status])}</span>`:''}</div>
+   <div class="ttl">${esc(t.title)}</div>
+   <div class="meta">${dl(t.deadline)}</div>
+   ${open?'':`<div class="who">${leadContact(t.contact)?`לברר מי זכה: ${leadContact(t.contact)}`:''}</div>
+   <div class="win"><input type="text" placeholder="מי זכה? (שם המשכיר / החברה)" value="${esc(t.winner||'')}" data-win="${t.id}"><button class="btn" data-savewin="${t.id}">שמור</button>${t.winner_at?`<span class="muted small">${esc(t.winner_by||'')} · ${esc(ilTime(t.winner_at))}</span>`:''}</div>`}
+   <div class="acts">
+    ${t.winner?`<a class="btn" href="${gq(t.winner)}" target="_blank" rel="noopener">חפש את הזוכה ↗</a>`:''}
+    <a class="btn ghost" href="${esc(t.url)}" target="_blank" rel="noopener">לעמוד המכרז ↗</a>
+   </div></div>`;
+}
+async function renderLeads(){
+  $('#app').innerHTML='<div class="empty"><div class="spin"></div></div>';
+  const L=await api('leads');S.leads=L;
+  const tab=S.leadTab||'exempt';
+  const closed=L.tenders.filter(t=>!(t.deadline&&daysLeft(t.deadline)>=0));
+  const toAsk=closed.filter(t=>!t.winner).length;
+  $('#app').innerHTML=`<h2>לידים מהשכרות</h2>
+   <p class="muted small" style="margin-top:-6px">משכירים שהממשלה שוכרת מהם נכס. בדרך כלל המשכיר מחויב לבצע התאמות לפי המפרט של מינהל הדיור הממשלתי, ואפשר להציע לו ניהול או ביצוע של העבודות.</p>
+   <div class="seg" role="tablist">
+    <button class="${tab==='exempt'?'on':''}" data-lt="exempt">השכרות בפטור (${L.exempt.length})</button>
+    <button class="${tab==='tenders'?'on':''}" data-lt="tenders">מכרזי איתור דיור (${L.tenders.length}${toAsk?` · ${toAsk} לברר`:''})</button>
+   </div>
+   <p class="muted small">${tab==='exempt'?'בהודעת הפטור מופיע שם המשכיר, הח"פ וההיקף. הודעה חדשה מגיעה גם בוואטסאפ.':'במכרז רגיל הזוכה לא מתפרסם באתר. כשהמכרז נסגר תגיע הודעה בוואטסאפ עם איש הקשר, ואחרי שתברר מי זכה אפשר לרשום אותו כאן.'}</p>
+   <div class="tl">${(tab==='exempt'?L.exempt.map(exemptCard):L.tenders.map(rentCard)).join('')||'<div class="card empty">אין עדיין רשומות. המילוי הראשוני של המאגר נמשך כמה שעות.</div>'}</div>`;
+  document.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{S.leadTab=b.dataset.lt;renderLeads()});
+  document.querySelectorAll('.tc.lead').forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('a,button,input'))return;location.hash='t/'+el.dataset.id}));
+  document.querySelectorAll('.tc.lead [data-st]').forEach(b=>b.addEventListener('click',()=>busy(b,async()=>{
+    const id=+b.closest('.tc').dataset.id;const t=[...L.exempt,...L.tenders].find(x=>x.id===id);const st=t.my_status==='interesting'?'':'interesting';
+    await api('setStatus',id,st);t.my_status=st;toast(st?'סומן: מעניין':'הסימון הוסר');renderLeads();
+  })));
+  document.querySelectorAll('[data-savewin]').forEach(b=>b.addEventListener('click',()=>busy(b,async()=>{
+    const id=+b.dataset.savewin;const v=document.querySelector(`[data-win="${id}"]`).value;
+    await api('setWinner',id,v);toast(v?'הזוכה נשמר':'נמחק');renderLeads();
+  })));
+}
 
 /* ============ הגדרות ============ */
 function renderSettings(){

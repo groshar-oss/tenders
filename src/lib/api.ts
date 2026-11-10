@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 import { q, q1, UserError } from './db';
 import { MY_STATUS, mergeSettings, type Settings } from './core';
-import { cronJob, getSettings, scorePending, sendDigest, sendWhatsApp, digestRows } from './jobs';
+import { cronJob, getSettings, scorePending, sendDigest, sendWhatsApp, digestRows, RENT_EXEMPT, RENT_TENDER } from './jobs';
 import { eligibility, hasAiKey } from './gemini';
 import { fetchDoc } from './mr';
 import { connection } from './google';
@@ -68,9 +68,24 @@ async function boot(c: Ctx) {
 }
 
 async function get(id: number) {
-  const t = await q1(`select ${LIST_COLS}, contact, docs, elig, elig_at, detail_error, ai_error, wa_at, wa_reason, my_by, my_at from tenders where id = $1`, [id]);
+  const t = await q1(`select ${LIST_COLS}, contact, docs, party, winner, elig, elig_at, detail_error, ai_error, wa_at, wa_reason, my_by, my_at from tenders where id = $1`, [id]);
   if (!t) throw new UserError('המכרז לא נמצא.', 404);
   return t;
+}
+
+/** לידים מהשכרות: הודעות פטור עם שם המשכיר, ומכרזי איתור דיור (פתוחים וסגורים) עם איש קשר והזוכה */
+async function leads() {
+  const cols = `${LIST_COLS}, party, contact, docs, winner, winner_by, winner_at`;
+  const exempt = await q(`select ${cols} from tenders where ${RENT_EXEMPT} and coalesce(published_on, first_seen::date) > now() - interval '12 months'
+    order by coalesce(published_on, first_seen::date) desc, id desc limit 150`);
+  const tenders = await q(`select ${cols} from tenders where ${RENT_TENDER} and status <> 'מבוטל' and (deadline is null or deadline > now() - interval '12 months')
+    order by coalesce(deadline > now(), true) desc, case when deadline > now() then deadline end asc, deadline desc limit 150`);
+  return { exempt, tenders };
+}
+
+async function setWinner(c: Ctx, id: number, winner: string) {
+  await q('update tenders set winner = $2, winner_by = $3, winner_at = now() where id = $1', [id, String(winner || '').trim().slice(0, 200), c.me.email]);
+  return q1('select id, winner, winner_by, winner_at from tenders where id = $1', [id]);
 }
 
 async function setStatus(c: Ctx, id: number, status: string, note?: string) {
@@ -143,6 +158,8 @@ export async function call(name: string, args: unknown[], c: Ctx) {
     case 'list': return list((a[0] || {}) as Filters);
     case 'get': return get(Number(a[0]));
     case 'setStatus': return setStatus(c, Number(a[0]), String(a[1] || ''), a[2] as string | undefined);
+    case 'leads': return leads();
+    case 'setWinner': return setWinner(c, Number(a[0]), String(a[1] ?? ''));
     case 'eligibility': return checkEligibility(Number(a[0]));
     case 'rescore': { const s = await getSettings(); await scorePending(Date.now() + 120_000, s, [Number(a[0])]); return get(Number(a[0])); }
     case 'saveSettings': return saveSettings(c, (a[0] || {}) as Partial<Settings>);

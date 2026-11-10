@@ -18,7 +18,10 @@ export type ListItem = {
 export type Detail = {
   submitStart: string | null; deadline: string | null; topics: string[];
   contact: { name?: string; email?: string; phone?: string }; docs: { name: string; desc: string; url: string; date: string }[];
+  party: Party;
 };
+/** פרטי ההתקשרות בהודעות פטור / כוונה להתקשרות: מי הספק (בהשכרה: המשכיר) ובכמה */
+export type Party = { supplier?: string; supplierId?: string; amount?: number; currency?: string; regulation?: string; essence?: string; start?: string; end?: string };
 
 const decode = (s: string) => s.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;|&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const text = (s: string) => decode(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -85,7 +88,44 @@ export function parseDetail(html: string): Detail {
     if (docs.some((d) => d.url === url)) continue;
     docs.push({ date: ps[0] || '', name: ps[1] || 'מסמך', desc: ps[2] || '', url: url.startsWith('http') ? url : MR_BASE() + url });
   }
-  return { submitStart: parseIlDate(span('firstSubmittingDate')), deadline: parseIlDate(span('lastDate')), topics, contact, docs };
+  // מסמכים בעמודי פטור: בלוקים related-document-wrapper (תאריך, שם, תיאור)
+  for (const b of html.matchAll(/<div class="related-document-wrapper[^"]*">([\s\S]*?)<div class="download-wrapper/g)) {
+    const block = b[1];
+    const href = block.match(/href="([^"]*\/p\/attachment\/[^"]+)"/);
+    if (!href) continue;
+    const ps = [...block.matchAll(/<p>([\s\S]*?)<\/p>/g)].map((x) => text(x[1]));
+    const url = decode(href[1]).replace(/^https?:\/\/[^/]+/, MR_BASE());
+    if (docs.some((d) => d.url === url)) continue;
+    docs.push({ date: ps[0] || '', name: ps[1] || 'מסמך', desc: ps[2] || '', url: url.startsWith('http') ? url : MR_BASE() + url });
+  }
+  return { submitStart: parseIlDate(span('firstSubmittingDate')), deadline: parseIlDate(span('lastDate')), topics, contact, docs, party: parseParty(html) };
+}
+
+/** ערך שאחרי כותרת h3.sub-head ("שם הספק:") בעמוד פרטים */
+function field(html: string, label: string) {
+  const m = html.match(new RegExp(`<h3 class="sub-head">\\s*${label}\\s*</h3>\\s*<(span|p)[^>]*>([\\s\\S]*?)</\\1>`));
+  return m ? text(m[2]) : '';
+}
+
+export function parseParty(html: string): Party {
+  const p: Party = {};
+  const supplier = field(html, 'שם הספק:');
+  if (supplier) p.supplier = supplier;
+  const id = field(html, 'מס\' ח[״"]פ:').replace(/[^\d]/g, '');
+  if (id) p.supplierId = id;
+  const amount = Number(field(html, 'היקף כספי:').replace(/[^\d.]/g, ''));
+  if (amount) p.amount = amount;
+  const cur = field(html, 'מטבע:');
+  if (cur) p.currency = cur;
+  const reg = field(html, 'מתן פטור מסתמך על תקנה:');
+  if (reg) p.regulation = reg;
+  const ess = field(html, 'מהות ההתקשרות:');
+  if (ess) p.essence = ess.slice(0, 500);
+  const st = parseIlDay(field(html, 'מועד תחילת ההתקשרות:'));
+  if (st) p.start = st;
+  const en = parseIlDay(field(html, 'מועד סיום ההתקשרות:'));
+  if (en) p.end = en;
+  return p;
 }
 
 /* ---------- הורדה ---------- */

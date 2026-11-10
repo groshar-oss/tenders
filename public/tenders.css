@@ -1,5 +1,5 @@
 /* איתור מכרזים: תוספות על app.css */
-.bnav{grid-template-columns:repeat(3,1fr)!important}
+.bnav{grid-template-columns:repeat(4,1fr)!important}
 .kpis.k4{grid-template-columns:repeat(4,1fr)}
 @media (max-width:760px){.kpis.k4{grid-template-columns:repeat(2,1fr)}}
 .tl{display:flex;flex-direction:column;gap:8px}
@@ -42,3 +42,12 @@ textarea.kw{width:100%;min-height:90px;border:1px solid var(--line);padding:8px;
 .help{font-size:13px;color:var(--ink2);line-height:1.5}
 .help ol{margin:4px 0;padding-inline-start:20px}
 .more-row{display:flex;justify-content:center;margin:12px 0}
+
+/* לידים */
+.seg{display:flex;gap:0;border:1px solid var(--line);background:#fff;margin:10px 0 6px;overflow-x:auto}
+.seg button{flex:1;min-height:42px;border:0;background:transparent;font:inherit;font-size:14px;padding:6px 10px;cursor:pointer;white-space:nowrap;color:var(--ink2)}
+.seg button.on{background:var(--ink);color:#fff}
+.tc .who{font-size:13.5px;color:var(--ink)}
+.tc .who a{color:inherit}
+.tc .win{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tc .win input{flex:1;min-width:0;min-height:38px;border:1px solid var(--line);padding:6px 8px;font:inherit;font-size:14px;background:#fff}

@@ -155,6 +155,34 @@ try {
   check(s2.mails.length === s1.mails.length && s2.wa.length === s1.wa.length, 'second cron: no duplicate mail/whatsapp');
   check(!cr2.data.collect, 'second cron skips collection (not due)');
 
+  // ---------- לידים מהשכרות ----------
+  sql(`insert into tenders (source, ext_id, kind, title, publisher, status, published_on, url, topics, party, detail_at)
+       values ('mr-exemption', '4000623679', 'פטור', 'שכירות נכס ליחידת נציבות - משרד המשפטים בתל אביב', 'משרד האוצר - מינהל הדיור הממשלתי', 'פורסם', current_date,
+       'http://x/p/4000623679', '{"החכרת / השכרת קרקעות ומבנים"}',
+       '{"supplier":"מחצית היובל בע\\"מ","supplierId":"512686114","amount":4100000,"regulation":"תקנה 3(14א)(א) - זכויות במקרקעין"}', now())`);
+  sql(`insert into tenders (source, ext_id, kind, title, publisher, status, url, party, detail_at)
+       values ('mr-exemption', '4000623778', 'פטור', 'שכירת חניות תחנת שרת', 'משרד האוצר - מינהל הדיור הממשלתי', 'פורסם', 'http://x/p/2', '{"supplier":"חניון בע\\"מ"}', now())`);
+  sql(`update tenders set deadline = now() - interval '1 day', status = 'חלף מועד הגשה', contact = '{"name":"איברהים","email":"ibrahima@mof.gov.il"}' where title like '%איתור דיור%'`);
+  const sL0 = await state();
+  const crL = await (await fetch(url + 'api/cron', { headers: { authorization: 'Bearer cron1' } })).json();
+  const sL1 = await state();
+  const leadMsg = sL1.wa.slice(sL0.wa.length).map((x) => x.text).find((x) => x.includes('לידים מהשכרות')) || '';
+  check(leadMsg.includes('לידים מהשכרות') && leadMsg.includes('מחצית היובל') && leadMsg.includes('לברר מי זכה') && !leadMsg.includes('חניות'),
+    'whatsapp rental leads: ' + JSON.stringify(crL.data?.wa));
+  await (await fetch(url + 'api/cron', { headers: { authorization: 'Bearer cron1' } })).json();
+  check((await state()).wa.length === sL1.wa.length, 'rental leads not sent twice');
+  await p.goto(url + '#leads'); await p.reload();
+  await p.waitForSelector('text=מחצית היובל');
+  check(!(await p.$('text=שכירת חניות')), 'parking exemption not a lead');
+  await shot(p, '08-leads');
+  await p.click('[data-lt="tenders"]');
+  await p.waitForSelector('[data-win]');
+  await p.fill('[data-win]', 'נכסי הדרום בע"מ');
+  await p.click('[data-savewin]');
+  await p.waitForSelector('text=חפש את הזוכה');
+  check(sql(`select winner from tenders where title like '%איתור דיור%'`) === 'נכסי הדרום בע"מ', 'winner saved');
+  await shot(p, '09-leads-tenders');
+
   // ---------- חסימה ----------
   await fetch(F + '/__block', { method: 'POST', body: JSON.stringify({ block: true }) });
   await (await fetch(url + 'api/cron?force=1', { headers: { authorization: 'Bearer cron1' } })).json();
@@ -175,6 +203,10 @@ try {
   await m.waitForSelector('#elig');
   check((await overflow(m)) <= 0, 'phone detail: no overflow');
   await shot(m, '06-phone-detail', true);
+  await m.goto(url + '#leads'); await m.reload();
+  await m.waitForSelector('text=מחצית היובל');
+  check((await overflow(m)) <= 0, 'phone leads: no overflow');
+  await shot(m, '10-phone-leads');
   await m.goto(url + '#settings');
   await m.waitForSelector('#waPhone');
   check((await overflow(m)) <= 0, 'phone settings: no overflow');

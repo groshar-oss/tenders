@@ -40,3 +40,23 @@ describe('מנהל הרכש: עמוד מכרז', () => {
     expect(d.docs[0].desc).toContain('PDF');
   });
 });
+
+describe('exemption detail (rental)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../fixtures/mr-exemption.html'), 'utf8');
+  it('reads the landlord, company id and amount', () => {
+    const d = parseDetail(html);
+    expect(d.party.supplier).toBe('מחצית היובל בע"מ');
+    expect(d.party.supplierId).toBe('512686114');
+    expect(d.party.amount).toBe(4100000);
+    expect(d.party.regulation).toMatch(/מקרקעין/);
+    expect(d.party.start).toBe('2026-11-02');
+    expect(d.topics).toContain('החכרת / השכרת קרקעות ומבנים');
+    expect(d.contact.email).toBe('ibrahima@mof.gov.il');
+    expect(d.docs.length).toBe(1);
+    expect(d.docs[0].name).toBe('פרוטוקול לפרסום');
+  });
+  it('tender pages have no party', () => {
+    const d = parseDetail(fs.readFileSync(path.join(__dirname, '../fixtures/mr-detail.html'), 'utf8'));
+    expect(d.party.supplier).toBeUndefined();
+  });
+});

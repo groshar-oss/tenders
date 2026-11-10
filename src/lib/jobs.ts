@@ -106,9 +106,9 @@ export async function fetchDetails(until: number, max = 40) {
       const t = work.shift()!;
       try {
         const d = parseDetail(await fetchHtml(t.url));
-        await q(`update tenders set topics = $2, contact = $3, docs = $4, submit_start = $5, deadline = coalesce($6, deadline), detail_at = now(), detail_error = '',
+        await q(`update tenders set topics = $2, contact = $3, docs = $4, submit_start = $5, deadline = coalesce($6, deadline), party = $7, detail_at = now(), detail_error = '',
                  ai_at = case when topics is distinct from $2 then null else ai_at end where id = $1`,
-          [t.id, d.topics, JSON.stringify(d.contact), JSON.stringify(d.docs), d.submitStart, d.deadline]);
+          [t.id, d.topics, JSON.stringify(d.contact), JSON.stringify(d.docs), d.submitStart, d.deadline, JSON.stringify(d.party)]);
         ok++;
       } catch (e) {
         await q("update tenders set detail_at = now(), detail_error = $2 where id = $1", [t.id, String((e as Error).message).slice(0, 300)]);
@@ -190,18 +190,55 @@ export async function sendWhatsApp(s: Settings, text: string) {
 
 const ALERT_COLS = 'id, title, publisher, kind, url, status, deadline, ai_score, ai_entity, ai_reason, my_status, wa_at, remind_at, first_seen';
 
+/* ---------- לידים מהשכרות ---------- */
+
+/** הודעת פטור על שכירת נכס (מופיע שם המשכיר). בלי רמ"י (הקצאות קרקע) ובלי חניות/תוכנה/ציוד. */
+export const RENT_EXEMPT = `kind = 'פטור' and publisher not ilike '%רשות מקרקעי ישראל%'
+  and (party->>'regulation' ilike '%מקרקעין%' or array_to_string(topics, ' ') ilike '%השכרת%' or title ~ '(שכירות|שכירת) (נכס|משרד|מבנה|שטח)')
+  and title !~ '(חני|תוכנ|רכב|יריד|דוכן|ציוד)'`;
+/** מכרז לאיתור דיור / שכירת נכס: הזוכה לא מתפרסם, צריך לברר מול איש הקשר */
+export const RENT_TENDER = `kind like '%מכרז%' and title ~ '(איתור דיור|שכירת נכס|שכירות נכס|שכירת משרדים|שכירת מבנה)'`;
+
+type LeadRow = { id: number; title: string; publisher: string; party: { supplier?: string; supplierId?: string; amount?: number }; contact: { name?: string; email?: string; phone?: string } };
+
+export function leadText(exempt: LeadRow[], closed: LeadRow[], appUrl: string) {
+  const L = ['🏢 לידים מהשכרות'];
+  for (const r of exempt) {
+    const p = r.party || {};
+    L.push(`• השכרה בפטור: ${r.title}`, `  משכיר: ${p.supplier}${p.supplierId ? ` (ח"פ ${p.supplierId})` : ''}${p.amount ? ` · ${p.amount.toLocaleString('he-IL')} ₪` : ''}`);
+  }
+  for (const r of closed) {
+    const c = r.contact || {};
+    L.push(`• מכרז איתור דיור נסגר: ${r.title}`, `  לברר מי זכה: ${[c.name, c.phone, c.email].filter(Boolean).join(' · ') || r.publisher}`);
+  }
+  L.push(`${appUrl}/#leads`);
+  return L.join('\n');
+}
+
+export async function leadsAlert(s: Settings, appUrl: string) {
+  const exempt = await q<LeadRow>(`select id, title, publisher, party, contact from tenders where ${RENT_EXEMPT}
+    and lead_wa_at is null and coalesce(party->>'supplier', '') <> '' and first_seen > now() - interval '3 days' order by first_seen limit 8`);
+  const closed = await q<LeadRow>(`select id, title, publisher, party, contact from tenders where ${RENT_TENDER}
+    and lead_wa_at is null and deadline < now() and deadline > now() - interval '3 days' and status <> 'מבוטל' order by deadline limit 8`);
+  if (!exempt.length && !closed.length) return 0;
+  await sendWhatsApp(s, leadText(exempt, closed, appUrl));
+  await q('update tenders set lead_wa_at = now() where id = any($1)', [[...exempt, ...closed].map((r) => r.id)]);
+  return exempt.length + closed.length;
+}
+
 export async function whatsappJob(s: Settings, appUrl: string, now = new Date()) {
   if (!s.waPhone || !s.waKeyEnc) return { wa: 'off' };
+  const leads = await leadsAlert(s, appUrl);
   const rows = await q<AlertRow>(`select ${ALERT_COLS} from tenders where (deadline is null or deadline > now()) and (
       (wa_at is null and ai_score >= least($1::int, $2::int)) or (my_status in ('interesting','preparing') and remind_at is null and deadline is not null))`, [s.waMin, s.urgentMin]);
   const pick = pickWhatsApp(rows, s, now);
-  if (!pick.length) return { wa: 0 };
+  if (!pick.length) return { wa: 0, leads };
   await sendWhatsApp(s, waText(pick, appUrl, now));
   for (const p of pick) {
     if (p.reason === 'תזכורת') await q('update tenders set remind_at = now() where id = $1', [p.row.id]);
     else await q('update tenders set wa_at = now(), wa_reason = $2 where id = $1', [p.row.id, p.reason]);
   }
-  return { wa: pick.length };
+  return { wa: pick.length, leads };
 }
 
 /* ---------- סיכום יומי במייל ---------- */
