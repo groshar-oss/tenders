@@ -1,0 +1,29 @@
+# בדיקות אוטומטיות על כל PR ועל כל דחיפה ל-main: טיפוסים, בדיקות יחידה ובנייה.
+name: בדיקות
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: טיפוסים
+        run: npx tsc --noEmit
+      - name: בדיקות יחידה
+        run: npx vitest run tests/unit
+      - name: בנייה
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
